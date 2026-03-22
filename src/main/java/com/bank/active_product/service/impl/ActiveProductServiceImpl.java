@@ -83,9 +83,11 @@ public class ActiveProductServiceImpl implements ActiveProductService {
     public Mono<ActiveProductEntity> create(ActiveProductEntity e) {
         log.info("[Service] Creating active product for customerId={}, productType={}, traceId={}",
                 e.getCustomerId(), e.getProductType());
+
         e.setActive(true);
         e.setCreatedAt(LocalDateTime.now());
         e.setBalance(0.0);
+
         return validateCustomerExists(e.getCustomerId())
                 .flatMap(customer -> validateBusinessRules(customer.type(), e))
                 .flatMap(repository::save)
@@ -223,9 +225,6 @@ public class ActiveProductServiceImpl implements ActiveProductService {
                 // Máximo un crédito personal por cliente personal
                 return validatePersonalCreditLimit(product);
 
-            case BUSINESS_CREDIT:
-                return Mono.just(product);
-
             case CREDIT_CARD:
                 // Validación de límite requerida
                 return validateCreditCardLimit(product);
@@ -244,12 +243,7 @@ public class ActiveProductServiceImpl implements ActiveProductService {
         String type = product.getProductType();
 
         switch (type) {
-
             case BUSINESS_CREDIT:
-                // Ilimitado
-                return Mono.just(product);
-
-            case PERSONAL_CREDIT:
                 return Mono.just(product);
 
             case CREDIT_CARD:
@@ -269,6 +263,17 @@ public class ActiveProductServiceImpl implements ActiveProductService {
         if (product.getCreditLimit() == null || product.getCreditLimit() <= 0) {
             return Mono.error(new BusinessException("Credit cards require a positive creditLimit"));
         }
+
+        repository.findByCustomerIdAndActiveTrue(product.getCustomerId())
+                .filter(p -> CREDIT_CARD.equalsIgnoreCase(p.getProductType()))
+                .hasElements()
+                .flatMap(hasCreditCard -> {
+                    if (hasCreditCard) {
+                        return Mono.error(new BusinessException(
+                                "Customers can only have one CREDIT_CARD product"));
+                    }
+                    return Mono.just(product);
+                });
 
         return Mono.just(product);
     }

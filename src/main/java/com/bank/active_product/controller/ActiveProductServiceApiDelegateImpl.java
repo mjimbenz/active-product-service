@@ -85,6 +85,9 @@ public class ActiveProductServiceApiDelegateImpl implements ActiveProductApiDele
                 .productType(ActiveProduct.ProductTypeEnum.fromValue(activeProductEntity.getProductType()))
                 .creditLimit(BigDecimal.valueOf(activeProductEntity.getCreditLimit()))
                 .balance(BigDecimal.valueOf(activeProductEntity.getBalance()))
+                .createdAt(activeProductEntity.getCreatedAt() != null ? activeProductEntity.getCreatedAt().atOffset(java.time.ZoneOffset.UTC) : null)
+                .updatedAt(activeProductEntity.getUpdatedAt() != null ? activeProductEntity.getUpdatedAt().atOffset(java.time.ZoneOffset.UTC) : null)
+                .deletedAt(activeProductEntity.getDeletedAt() != null ? activeProductEntity.getDeletedAt().atOffset(java.time.ZoneOffset.UTC) : null)
                 .active(activeProductEntity.isActive());
     }
 
