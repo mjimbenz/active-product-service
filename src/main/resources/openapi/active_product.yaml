@@ -1,0 +1,158 @@
+openapi: 3.0.1
+info:
+  title: Active Product Service API
+  version: 1.0.0
+  description: |
+    Microservice responsible for managing active banking products such as
+    personal credits, business credits and credit cards. 
+    This service handles business rules, product state, and customer validation,
+    but not transactions or payments, which are managed by the Movement Service.
+
+servers:
+  - url: http://localhost:8083
+
+paths:
+
+  /:
+    get:
+      summary: Get all active products, optionally filtered by customerId
+      tags: [ActiveProduct]
+      parameters:
+        - in: query
+          name: customerId
+          required: false
+          schema:
+            type: string
+          description: Filter products belonging to a customer
+      responses:
+        "200":
+          description: List of active products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActiveProduct"
+
+    post:
+      summary: Create active product (credit or credit card)
+      tags: [ActiveProduct]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActiveProductRequest"
+      responses:
+        "201":
+          description: Active product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveProduct"
+
+  /{id}:
+    get:
+      summary: Get a specific active product by ID
+      tags: [ActiveProduct]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active product found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveProduct"
+        "404":
+          description: Product not found or inactive
+
+    put:
+      summary: Update an active product
+      tags: [ActiveProduct]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActiveProductRequest"
+      responses:
+        "200":
+          description: Active product updated
+
+    delete:
+      summary: Soft delete an active product
+      tags: [ActiveProduct]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Active product soft-deleted
+
+components:
+
+  schemas:
+
+    ActiveProduct:
+      type: object
+      required:
+        - id
+        - customerId
+        - productType
+        - creditLimit
+        - balance
+        - active
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        productType:
+          type: string
+          enum: [PERSONAL_CREDIT, BUSINESS_CREDIT, CREDIT_CARD]
+        creditLimit:
+          type: number
+        balance:
+          type: number
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+
+    ActiveProductRequest:
+      type: object
+      required:
+        - customerId
+        - productType
+        - creditLimit
+      properties:
+        customerId:
+          type: string
+        productType:
+          type: string
+          enum: [PERSONAL_CREDIT, BUSINESS_CREDIT, CREDIT_CARD]
+        creditLimit:
+          type: number
+        balance:
+          type: number
