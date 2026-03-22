@@ -86,7 +86,6 @@ public class ActiveProductServiceImpl implements ActiveProductService {
 
         e.setActive(true);
         e.setCreatedAt(LocalDateTime.now());
-        e.setBalance(0.0);
 
         return validateCustomerExists(e.getCustomerId())
                 .flatMap(customer -> validateBusinessRules(customer.type(), e))
@@ -111,8 +110,11 @@ public class ActiveProductServiceImpl implements ActiveProductService {
                 .flatMap(existing -> {
                     existing.setCreditLimit(e.getCreditLimit());
                     existing.setBalance(e.getBalance());
-                    existing.setActive(e.isActive());
-                    validateBusinessRules(existing.getCustomerId(), existing);
+                    log.info("[Service] Validating business rules for update, id={}, customerId={}, productType={}",
+                            id, existing.getCustomerId(), existing.getProductType());
+                    validateBusinessRules(existing.getCustomerId(), existing)
+                            .doOnSuccess(p -> log.info("[Service] Business rules validated for update, id={}", id))
+                            .doOnError(err -> log.error("[Service] Business rules validation failed for update,); id={}, error={}", id, err.getMessage()));
                     return repository.save(existing);
                 })
                 .doOnSuccess(p -> log.info("[Service] Active product updated successfully, id={}", p.getId()))
