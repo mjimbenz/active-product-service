@@ -2,6 +2,7 @@ package com.bank.active_product.controller;
 
 import com.bank.active_product.api.ActiveProductApiDelegate;
 import com.bank.active_product.api.model.ActiveProduct;
+import com.bank.active_product.api.model.ActiveProductRequest;
 import com.bank.active_product.model.ActiveProductEntity;
 import com.bank.active_product.service.ActiveProductService;
 import lombok.RequiredArgsConstructor;
@@ -30,16 +31,53 @@ public class ActiveProductServiceApiDelegateImpl implements ActiveProductApiDele
                     log.error("[api] Error retrieving active products for customerId={}, error={}", customerId, err.getMessage());
                     return Mono.just(ResponseEntity.internalServerError().build());
                 });
-
-
     }
-/*this.id = id;
-    this.customerId = customerId;
-    this.productType = productType;
-    this.creditLimit = creditLimit;
-    this.balance = balance;
-    this.active = active;
-    */
+
+    @Override
+    public Mono<ResponseEntity<ActiveProduct>> rootPost(Mono<ActiveProductRequest> activeProductRequest, ServerWebExchange exchange) {
+        log.info("[api] Creating active product -> {}", activeProductRequest);
+        return activeProductRequest.map(this::toEntity)
+                .flatMap(service::create)
+                .doOnSuccess(c -> log.info("[api] Successfully created active product for customerId={}", c.getCustomerId()))
+                .doOnError(err -> log.error("[api] Error creating active product, error={}", err.getMessage()))
+                .map(this::toModel)
+                .map(ResponseEntity::ok);
+    }
+
+    @Override
+    public Mono<ResponseEntity<Void>> idPut(String id, Mono<ActiveProductRequest> activeProductRequest, ServerWebExchange exchange) {
+        log.info("[api] Updating active product with id={} -> {}", id, activeProductRequest);
+        return activeProductRequest.map(this::toEntity)
+                .flatMap(e -> service.update(id, e))
+                .doOnSuccess(c -> log.info("[api] Successfully updated active product with id={}", id))
+                .doOnError(err -> log.error("[api] Error updating active product with id={}, error={}", id, err.getMessage()))
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+
+    @Override
+    public Mono<ResponseEntity<ActiveProduct>> idGet(String id, ServerWebExchange exchange) {
+        log.info("[api] Getting active product by id={}", id);
+        return service.findById(id)
+                .map(this::toModel)
+                .map(ResponseEntity::ok)
+                .doOnSuccess(c -> log.info("[api] Successfully retrieved active product with id={}", id))
+                .onErrorResume(err -> {
+                    log.error("[api] Error retrieving active product with id={}, error={}", id, err.getMessage());
+                    return Mono.just(ResponseEntity.notFound().build());
+                });
+    }
+
+    @Override
+    public Mono<ResponseEntity<Void>> idDelete(String id, ServerWebExchange exchange) {
+        log.info("[api] Deleting active product with id={}", id);
+        return service.delete(id)
+                .doOnSuccess(c -> log.info("[api] Successfully deleted active product with id={}", id))
+                .doOnError(err -> log.error("[api] Error deleting active product with id={}, error={}", id, err.getMessage()))
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+
+
+
     private ActiveProduct toModel(ActiveProductEntity activeProductEntity) {
         return new ActiveProduct()
                 .id(activeProductEntity.getId())
@@ -48,5 +86,14 @@ public class ActiveProductServiceApiDelegateImpl implements ActiveProductApiDele
                 .creditLimit(BigDecimal.valueOf(activeProductEntity.getCreditLimit()))
                 .balance(BigDecimal.valueOf(activeProductEntity.getBalance()))
                 .active(activeProductEntity.isActive());
+    }
+
+    private ActiveProductEntity toEntity(ActiveProductRequest activeProduct){
+        return ActiveProductEntity.builder()
+                .customerId(activeProduct.getCustomerId())
+                .productType(activeProduct.getProductType().getValue())
+                .creditLimit(activeProduct.getCreditLimit().doubleValue())
+                .balance(activeProduct.getBalance().doubleValue())
+                .build();
     }
 }
