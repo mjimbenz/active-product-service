@@ -104,24 +104,36 @@ public class ActiveProductServiceImpl implements ActiveProductService {
     @Override
     @Transactional
     public Mono<ActiveProductEntity> update(String id, ActiveProductEntity e) {
-        log.info("[Service] Updating active product id={}, traceId={}", id);
+        log.info("[Service] Updating active product id={}", id);
+
         return repository.findById(id)
                 .switchIfEmpty(Mono.error(new BusinessException("Active product not found")))
                 .flatMap(existing -> {
+                    log.info("[Service] Found product id={}, customerId={}, productType={}",
+                            id, existing.getCustomerId(), existing.getProductType());
+
                     existing.setCreditLimit(e.getCreditLimit());
                     existing.setBalance(e.getBalance());
-                    log.info("[Service] Validating business rules for update, id={}, customerId={}, productType={}",
-                            id, existing.getCustomerId(), existing.getProductType());
-                    validateBusinessRules(existing.getCustomerId(), existing)
-                            .doOnSuccess(p -> log.info("[Service] Business rules validated for update, id={}", id))
-                            .doOnError(err -> log.error("[Service] Business rules validation failed for update,); id={}, error={}", id, err.getMessage()));
-                    return repository.save(existing);
+
+                    log.info("[Service] Validating business rules for update id={}", id);
+
+                    return validateBusinessRules(existing.getCustomerId(), existing)
+                            .doOnSuccess(v ->
+                                    log.info("[Service] Business rules OK for update id={}", id)
+                            )
+                            .doOnError(err ->
+                                    log.error("[Service] Business rules FAILED for update id={}, error={}",
+                                            id, err.getMessage())
+                            )
+                            // ✅ El flujo continúa SOLO si pasó validateBusinessRules
+                            .then(repository.save(existing));
                 })
-                .doOnSuccess(p -> log.info("[Service] Active product updated successfully, id={}", p.getId()))
-                .onErrorResume(err -> {
-                    log.error("[Service] Error in update, id={}, error={}", id, err.getMessage());
-                    return Mono.error(err);
-                });
+                .doOnSuccess(saved ->
+                        log.info("[Service] Active product updated successfully id={}", saved.getId())
+                )
+                .doOnError(err ->
+                        log.error("[Service] Error while updating id={}, error={}", id, err.getMessage())
+                );
     }
 
     // =====================================================

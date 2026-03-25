@@ -3,8 +3,11 @@ package com.bank.active_product.controller;
 import com.bank.active_product.api.ActiveProductApiDelegate;
 import com.bank.active_product.api.model.ActiveProduct;
 import com.bank.active_product.api.model.ActiveProductRequest;
+import com.bank.active_product.exception.BusinessException;
 import com.bank.active_product.model.ActiveProductEntity;
 import com.bank.active_product.service.ActiveProductService;
+import jakarta.validation.Valid;
+import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -45,25 +48,59 @@ public class ActiveProductServiceApiDelegateImpl implements ActiveProductApiDele
     }
 
     @Override
-    public Mono<ResponseEntity<Void>> idPut(String id, Mono<ActiveProductRequest> activeProductRequest, ServerWebExchange exchange) {
-        log.info("[api] Updating active product with id={} -> {}", id, activeProductRequest);
-        return activeProductRequest.map(this::toEntity)
+    public Mono<ResponseEntity<Void>> idPut(
+            String id,
+            @Valid Mono<ActiveProductRequest> activeProductRequest,
+            ServerWebExchange exchange) {
+
+        return activeProductRequest
+                .map(this::toEntity)
                 .flatMap(e -> service.update(id, e))
-                .doOnSuccess(c -> log.info("[api] Successfully updated active product with id={}", id))
-                .doOnError(err -> log.error("[api] Error updating active product with id={}, error={}", id, err.getMessage()))
-                .thenReturn(ResponseEntity.noContent().build());
+                .doOnSuccess(updated ->
+                        log.info("[api] Successfully updated active product with id={}", id)
+                )
+                .map(updated ->
+                        ResponseEntity.noContent().<Void>build()
+                )
+                .onErrorResume(err -> {
+                    log.error("[api] Error updating active product with id={}, error={}", id, err.getMessage());
+
+                    if (err instanceof BusinessException) {
+                        return Mono.just(ResponseEntity.badRequest().build());
+                    }
+                    if (err instanceof NotFoundException) {
+                        return Mono.just(ResponseEntity.notFound().build());
+                    }
+
+                    return Mono.just(ResponseEntity.internalServerError().build());
+                });
     }
 
     @Override
     public Mono<ResponseEntity<ActiveProduct>> idGet(String id, ServerWebExchange exchange) {
+
         log.info("[api] Getting active product by id={}", id);
+
         return service.findById(id)
                 .map(this::toModel)
                 .map(ResponseEntity::ok)
-                .doOnSuccess(c -> log.info("[api] Successfully retrieved active product with id={}", id))
+                .doOnSuccess(r ->
+                        log.info("[api] Successfully retrieved active product with id={}", id)
+                )
                 .onErrorResume(err -> {
-                    log.error("[api] Error retrieving active product with id={}, error={}", id, err.getMessage());
-                    return Mono.just(ResponseEntity.notFound().build());
+                    log.error("[api] Error retrieving active product with id={}, error={}",
+                            id, err.getMessage());
+
+                    if (err instanceof NotFoundException) {
+                        return Mono.just(ResponseEntity.notFound().build());
+                    }
+
+                    if (err instanceof BusinessException) {
+                        return Mono.just(ResponseEntity.badRequest().build());
+                    }
+
+                    // Error inesperado → 500
+                    return Mono.just(ResponseEntity.internalServerError().build());
                 });
     }
 
