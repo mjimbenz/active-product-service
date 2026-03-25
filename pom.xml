@@ -32,7 +32,7 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<jacoco.version>0.8.8</jacoco.version>
 		<sonar.host.url>http://localhost:9095</sonar.host.url>
-		<sonar.token>sqa_42487ae4f625ebe7af4a79af5dc2803c78d7afe4</sonar.token>
+		<sonar.token>sqa_7fc43a705634c6087321bb048c6a3e1db57eebea</sonar.token>
 	</properties>
 
 	<dependencies>

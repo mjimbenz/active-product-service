@@ -37,7 +37,7 @@ public class ActiveProductEntity {
 
     @NotBlank(message = "El tipo de producto es obligatorio")
     @Pattern(
-            regexp = "PERSONAL_CREDIT|CREDIT_CARD",
+            regexp = "BUSINESS_CREDIT|CREDIT_CARD|CREDIT_CARD|PERSONAL_CREDIT",
             message = "El tipo de producto debe ser PERSONAL_CREDIT o CREDIT_CARD"
     )
     private String productType;

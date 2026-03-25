@@ -38,17 +38,27 @@ public class ActiveProductServiceImpl implements ActiveProductService {
     @Override
     public Flux<ActiveProductEntity> findAll(String customerId) {
         log.info("[Service] Listing all active passive products - traceId={}");
-        return validateCustomerExists(customerId)
-                .doOnSuccess(c -> log.info("[Service] Customer validated: {}", customerId))
-                .doOnError(err -> log.error("[Service] Customer validation failed for id={}, error={}", customerId, err.getMessage()))
-                .flatMapMany(customer -> {
-                    return repository.findByCustomerIdAndActiveTrue(customerId)
-                            .doOnNext(product -> log.info("[Service] Found active product for customer {}: {}", customerId, product.getId()))
-                            .doOnError(err -> log.error("[Service] Error fetching active products for customer {}, error={}", customerId, err.getMessage()));
-                        }
-                )
+        if(customerId != null){
+            return validateCustomerExists(customerId)
+                    .doOnSuccess(c -> log.info("[Service] Customer validated: {}", customerId))
+                    .doOnError(err -> log.error("[Service] Customer validation failed for id={}, error={}", customerId, err.getMessage()))
+                    .flatMapMany(customer -> {
+                                return repository.findByCustomerIdAndActiveTrue(customerId)
+                                        .doOnNext(product -> log.info("[Service] Found active product for customer {}: {}", customerId, product.getId()))
+                                        .doOnError(err -> log.error("[Service] Error fetching active products for customer {}, error={}", customerId, err.getMessage()));
+                            }
+                    )
+                    .onErrorResume(err -> {
+                        log.error("[Service] Error in findByCustomerId, customerId={}, error={}", customerId, err.getMessage());
+                        return Flux.error(err);
+                    });
+        }
+        return repository.findAll()
+                .filter(ActiveProductEntity::isActive)
+                .doOnNext(product -> log.info("[Service] Found active product: {}", product.getId()))
+                .doOnError(err -> log.error("[Service] Error fetching active products, error={}", err.getMessage()))
                 .onErrorResume(err -> {
-                    log.error("[Service] Error in findByCustomerId, customerId={}, error={}", customerId, err.getMessage());
+                    log.error("[Service] Error in findAll, error={}", err.getMessage());
                     return Flux.error(err);
                 });
 
