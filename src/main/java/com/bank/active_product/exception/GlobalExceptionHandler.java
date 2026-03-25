@@ -13,9 +13,12 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
+
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    private static final String MICROSERVICE_NAME = "active-product-service";
 
     private ErrorResponse buildError(String code, String message, String path) {
         return ErrorResponse.builder()
@@ -23,122 +26,124 @@ public class GlobalExceptionHandler {
                 .errorCode(code)
                 .message(message)
                 .path(path)
-                .microservice("passive-product-service")
+                .microservice(MICROSERVICE_NAME)
                 .build();
     }
 
+    private Mono<ResponseEntity<ErrorResponse>> buildResponse(
+            HttpStatus status, String code, String message, String path) {
+
+        return Mono.just(
+                ResponseEntity.status(status)
+                        .body(buildError(code, message, path))
+        );
+    }
+
     // -----------------------------------------------------
-    // 1. BUSINESS EXCEPTION (errores de reglas de negocio)
+    // 1. BUSINESS EXCEPTION
     // -----------------------------------------------------
     @ExceptionHandler(BusinessException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleBusinessException(
             BusinessException ex, ServerWebExchange exchange) {
 
-        log.warn("[BusinessException] {} | path={}", ex.getMessage(), exchange.getRequest().getPath());
+        var path = exchange.getRequest().getPath().value();
 
-        return Mono.just(
-                ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
-                        .body(buildError(
-                                "BUSINESS_ERROR",
-                                ex.getMessage(),
-                                exchange.getRequest().getPath().value()
-                        ))
+        log.warn("[BusinessException] {} | path={}", ex.getMessage(), path);
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "BUSINESS_ERROR",
+                ex.getMessage(),
+                path
         );
     }
 
     // -----------------------------------------------------
-    // 2. DECODING EXCEPTION (JSON mal formado o ENUM inválido)
+    // 2. DECODING EXCEPTION (JSON mal formado)
     // -----------------------------------------------------
     @ExceptionHandler(org.springframework.core.codec.DecodingException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleDecodingException(
             Exception ex, ServerWebExchange exchange) {
 
-        log.error("[DecodingException] Error leyendo el body. Causa: {} | path={}",
-                ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage(),
-                exchange.getRequest().getPath());
+        var cause = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+        var path = exchange.getRequest().getPath().value();
 
-        return Mono.just(
-                ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
-                        .body(buildError(
-                                "INVALID_REQUEST",
-                                "El formato del cuerpo enviado es inválido. Verifica tipos, nombre de campos y ENUMs.",
-                                exchange.getRequest().getPath().value()
-                        ))
+        log.error("[DecodingException] Causa: {} | path={}", cause, path);
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_REQUEST",
+                "El formato del cuerpo enviado es inválido. Verifica tipos, nombre de campos y ENUMs.",
+                path
         );
     }
 
     // -----------------------------------------------------
-    // 3. VALIDATION EXCEPTION
+    // 3. VALIDATION EXCEPTION (Bean Validation)
     // -----------------------------------------------------
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleValidationException(
             MethodArgumentNotValidException ex, ServerWebExchange exchange) {
 
-        String errors = ex.getBindingResult()
+        final String errors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .map(field -> field.getField() + " " + field.getDefaultMessage())
                 .collect(Collectors.joining("; "));
 
-        log.warn("[ValidationException] {} | path={}", errors, exchange.getRequest().getPath());
+        var path = exchange.getRequest().getPath().value();
 
-        return Mono.just(
-                ResponseEntity.badRequest()
-                        .body(buildError(
-                                "VALIDATION_ERROR",
-                                errors,
-                                exchange.getRequest().getPath().value()
-                        ))
+        log.warn("[ValidationException] {} | path={}", errors, path);
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                errors,
+                path
         );
     }
 
     // -----------------------------------------------------
-    // 4. EXTERNAL SERVICE RESPONSE EXCEPTION (WebClient errores HTTP)
+    // 4. ERRORES DE SERVICIOS EXTERNOS (WebClient)
     // -----------------------------------------------------
     @ExceptionHandler(WebClientResponseException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleWebClientError(
             WebClientResponseException ex, ServerWebExchange exchange) {
 
+        var path = exchange.getRequest().getPath().value();
+
         log.error("[ExternalServiceError] status={} body='{}' path={}",
                 ex.getStatusCode(),
                 ex.getResponseBodyAsString(),
-                exchange.getRequest().getPath());
+                path
+        );
 
-        return Mono.just(
-                ResponseEntity
-                        .status(ex.getStatusCode())
-                        .body(buildError(
-                                "EXTERNAL_SERVICE_ERROR",
-                                ex.getStatusText(),
-                                exchange.getRequest().getPath().value()
-                        ))
+        return buildResponse(
+                (HttpStatus) ex.getStatusCode(),
+                "EXTERNAL_SERVICE_ERROR",
+                ex.getStatusText(),
+                path
         );
     }
 
     // -----------------------------------------------------
-    // 5. CAJA NEGRA: Cualquier error desconocido
+    // 5. ERRORES DESCONOCIDOS (CAJA NEGRA)
     // -----------------------------------------------------
     @ExceptionHandler(Throwable.class)
     public Mono<ResponseEntity<ErrorResponse>> handleGenericError(
             Throwable ex, ServerWebExchange exchange) {
 
-        log.error("[UnexpectedError] {} | cause={} | path={}",
-                ex.getMessage(),
-                ex.getCause() != null ? ex.getCause().getMessage() : "none",
-                exchange.getRequest().getPath(),
-                ex // stacktrace
-        );
+        var cause = ex.getCause() != null ? ex.getCause().getMessage() : "none";
+        var path = exchange.getRequest().getPath().value();
 
-        return Mono.just(
-                ResponseEntity
-                        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(buildError(
-                                "INTERNAL_ERROR",
-                                "Ocurrió un error inesperado en el servicio.",
-                                exchange.getRequest().getPath().value()
-                        ))
+        log.error("[UnexpectedError] {} | cause={} | path={}",
+                ex.getMessage(), cause, path, ex);
+
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "INTERNAL_ERROR",
+                "Ocurrió un error inesperado en el servicio.",
+                path
         );
     }
 }

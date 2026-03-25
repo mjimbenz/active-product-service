@@ -95,8 +95,6 @@ public class ActiveProductServiceApiDelegateImpl implements ActiveProductApiDele
         return ActiveProductEntity.builder()
                 .customerId(activeProduct.getCustomerId())
                 .productType(activeProduct.getProductType().getValue())
-                .creditLimit(activeProduct.getCreditLimit().doubleValue())
-                .balance(activeProduct.getBalance().doubleValue())
                 .build();
     }
 }

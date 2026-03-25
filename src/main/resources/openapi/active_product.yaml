@@ -145,14 +145,9 @@ components:
       required:
         - customerId
         - productType
-        - creditLimit
       properties:
         customerId:
           type: string
         productType:
           type: string
           enum: [PERSONAL_CREDIT, BUSINESS_CREDIT, CREDIT_CARD]
-        creditLimit:
-          type: number
-        balance:
-          type: number
