@@ -156,7 +156,7 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<version>3.3.2</version>
 				<configuration>
-					<mainClass>com.bank.customer.CustomerServiceApplication</mainClass>
+					<mainClass>com.bank.active_product.ActiveProductServiceApplication</mainClass>
 				</configuration>
 			</plugin>
 

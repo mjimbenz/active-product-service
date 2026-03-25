@@ -6,6 +6,7 @@ import com.bank.active_product.api.model.ActiveProductRequest;
 import com.bank.active_product.exception.BusinessException;
 import com.bank.active_product.model.ActiveProductEntity;
 import com.bank.active_product.service.ActiveProductService;
+import com.bank.active_product.utils.RxAdapter;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -103,6 +104,8 @@ public class ActiveProductServiceApiDelegateImpl implements ActiveProductApiDele
                     return Mono.just(ResponseEntity.internalServerError().build());
                 });
     }
+
+
 
     @Override
     public Mono<ResponseEntity<Void>> idDelete(String id, ServerWebExchange exchange) {
